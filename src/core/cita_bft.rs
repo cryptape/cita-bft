@@ -228,7 +228,7 @@ impl TenderMint {
                 let proposer_nonce = height + round;
                 p.authorities.get(proposer_nonce % p.authority_n).expect(
                     "There are authority_n authorities; \
-                    taking number modulo authority_n gives number in authority_n range; qed",
+                     taking number modulo authority_n gives number in authority_n range; qed",
                 )
             }
 
@@ -239,7 +239,7 @@ impl TenderMint {
                 let pos = get_lower_bound(&p.prefix_share, proposer_nonce % sum);
                 p.authorities.get(pos).expect(
                     "There are authority_n authorities; \
-                    taking number modulo authority_n gives number in authority_n range; qed",
+                     taking number modulo authority_n gives number in authority_n range; qed",
                 )
             }
         };
