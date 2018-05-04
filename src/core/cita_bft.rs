@@ -190,18 +190,60 @@ impl TenderMint {
         self.is_snapshot = b;
     }
 
+    fn get_lower_bound(prefix_share: &[u64], val: u64) -> usize {
+        let mut l = 1;
+        let mut r = prefix_share.len() as u64;
+        let mut ans = 0;
+        loop {
+            if l > r {
+                break;
+            }
+            let mid = (l + r) / 2;
+            if val >= prefix_share[mid - 1] {
+                ans = mid;
+                l = mid + 1;
+            } else {
+                r = mid - 1;
+            }
+        }
+        let ans = ans as usize;
+        ans
+    }
+
+    /// Check whether current node is the proposer
+    ///
+    /// Method 0: Every node will be the proposer one by one
+    ///
+    /// Method 1: Each node will be the proposer based on their money share
     fn is_round_proposer(&self, height: usize, round: usize, address: &Address) -> Result<(), EngineError> {
         //let ref p = self.params;
+        let method = 0;
         let p = &self.auth_manage;
         if p.authority_n == 0 {
             info!("authority_n is {}", p.authority_n);
             return Err(EngineError::NotAuthorized(Address::zero()));
         }
-        let proposer_nonce = height + round;
-        let proposer: &Address = p.authorities.get(proposer_nonce % p.authority_n).expect(
-            "There are authority_n authorities; \
-             taking number modulo authority_n gives number in authority_n range; qed",
-        );
+        let proposer = match method {
+            0 => {
+                let proposer_nonce = height + round;
+                p.authorities.get(proposer_nonce % p.authority_n).expect(
+                    "There are authority_n authorities; \
+                    taking number modulo authority_n gives number in authority_n range; qed",
+                )
+            }
+
+            1 => {
+                // TODO: need to add a good hash function here
+                let proposer_nonce = height + round;
+                let sum = p.authorities.prefix_share.last().unwrap();
+                let pos = get_lower_bound(&p.prefix_share, proposer_nonce % sum);
+                p.authorities.get(pos).expect(
+                    "There are authority_n authorities; \
+                    taking number modulo authority_n gives number in authority_n range; qed",
+                )
+            }
+        };
+
         if proposer == address {
             Ok(())
         } else {
