@@ -20,6 +20,7 @@ pub mod votetime;
 pub mod cita_bft;
 pub mod params;
 pub mod voteset;
+pub mod ntp;
 
 pub use self::cita_bft::*;
 pub use self::params::*;
@@ -27,8 +28,7 @@ pub use self::voteset::*;
 
 pub use libproto::blockchain::{Block, BlockBody, BlockHeader, Proof, Status, Transaction};
 
-use util::Address;
-use util::H256;
+use types::H256;
 
 pub trait BareHash {
     fn bare_hash(&self) -> H256;
