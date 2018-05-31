@@ -184,7 +184,7 @@ impl VoteSet {
         step: Step,
         authorities: &[Address],
     ) -> Result<Option<H256>, &str> {
-        let votes_by_proposal:HashMap<H256, usize> = HashMap::new();
+        let mut votes_by_proposal:HashMap<H256, usize> = HashMap::new();
         for (sender, vote) in &self.votes_by_sender {
             if authorities.contains(sender) {
                 let msg = serialize(&(h, r, step, sender, vote.proposal), Infinite).unwrap();
@@ -196,7 +196,7 @@ impl VoteSet {
                             hash = h;
                         }
                         // inc the count of vote for hash
-                        *self.votes_by_proposal.entry(hash).or_insert(0) += 1;
+                        *votes_by_proposal.entry(hash).or_insert(0) += 1;
                     }
                 }
             }
