@@ -172,8 +172,10 @@ impl VoteSet {
             if let Some(h) = proposal {
                 hash = h;
             }
-            if let Some(c) = self.votes_by_proposal.insert(hash, 1) {
-                self.votes_by_proposal.insert(hash, c + 1);
+            if let Some(c) = self.votes_by_proposal.get_mut(hash) {
+                *c += 1;
+            } else {
+                self.votes_by_proposal.insert(hash, 1);
             }
             true
         }
@@ -198,8 +200,10 @@ impl VoteSet {
                             hash = h;
                         }
                         // inc the count of vote for hash
-                        if let Some(c) = votes_by_proposal.insert(hash, 1) {
-                            votes_by_proposal.insert(hash, c + 1);
+                        if let Some(c) = votes_by_proposal.get_mut(hash) {
+                            *c += 1;
+                        } else {
+                            votes_by_proposal.insert(hash, 1);
                         }
                     }
                 }
