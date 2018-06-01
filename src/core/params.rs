@@ -15,38 +15,86 @@
 // You should have received a copy of the GNU General Public License
 // along with this program.  If not, see <http://www.gnu.org/licenses/>.
 
+use super::ntp::Ntp;
 use crypto::{PrivKey, Signer};
+use std::cell::Cell;
+use std::fs::File;
+use std::io::Read;
+use std::str::FromStr;
 use std::time::Duration;
+use types::clean_0x;
 
-#[derive(Debug, Deserialize)]
+#[derive(Debug, Deserialize, Clone)]
 pub struct Config {
-    pub signer: PrivKey,
+    pub ntp_config: Ntp,
+}
 
-    #[serde(rename = "timeoutPropose")] pub timeout_propose: Option<u64>,
-    // Prevote step timeout in milliseconds.
-    #[serde(rename = "timeoutPrevote")] pub timeout_prevote: Option<u64>,
-    // Precommit step timeout in milliseconds.
-    #[serde(rename = "timeoutPrecommit")] pub timeout_precommit: Option<u64>,
-    // Commit step timeout in milliseconds.
-    #[serde(rename = "timeoutCommit")] pub timeout_commit: Option<u64>,
+impl Config {
+    pub fn new(path: &str) -> Self {
+        parse_config!(Config, path)
+    }
+}
+
+#[derive(Debug, Deserialize, Clone)]
+pub struct PrivateKey {
+    signer: PrivKey,
+}
+
+impl PrivateKey {
+    pub fn new(path: &str) -> Self {
+        let mut buffer = String::new();
+        File::open(path)
+            .and_then(|mut f| f.read_to_string(&mut buffer))
+            .unwrap_or_else(|err| panic!("Error while loading PrivateKey: [{}]", err));
+
+        let signer = PrivKey::from_str(clean_0x(&buffer)).unwrap();
+
+        PrivateKey { signer: signer }
+    }
 }
 
 #[derive(Debug, Clone)]
 pub struct TendermintTimer {
-    pub propose: Duration,
-    pub prevote: Duration,
-    pub precommit: Duration,
-    pub commit: Duration,
+    // in milliseconds.
+    total_duration: Cell<u64>,
+    // fraction: (numerator, denominator)
+    propose: (u64, u64),
+    prevote: (u64, u64),
+    precommit: (u64, u64),
+    commit: (u64, u64),
 }
 
 impl Default for TendermintTimer {
     fn default() -> Self {
         TendermintTimer {
-            propose: Duration::from_millis(2400),
-            prevote: Duration::from_millis(100),
-            precommit: Duration::from_millis(100),
-            commit: Duration::from_millis(400),
+            total_duration: Cell::new(3000),
+            propose: (24, 30),
+            prevote: (1, 30),
+            precommit: (1, 30),
+            commit: (4, 30),
         }
+    }
+}
+
+impl TendermintTimer {
+    pub fn set_total_duration(&self, duration: u64) {
+        self.total_duration.set(duration);
+    }
+
+    pub fn get_propose(&self) -> Duration {
+        Duration::from_millis(self.total_duration.get() * self.propose.0 / self.propose.1)
+    }
+
+    pub fn get_prevote(&self) -> Duration {
+        Duration::from_millis(self.total_duration.get() * self.prevote.0 / self.prevote.1)
+    }
+
+    pub fn get_precommit(&self) -> Duration {
+        Duration::from_millis(self.total_duration.get() * self.precommit.0 / self.precommit.1)
+    }
+
+    pub fn get_commit(&self) -> Duration {
+        Duration::from_millis(self.total_duration.get() * self.commit.0 / self.commit.1)
     }
 }
 
@@ -55,28 +103,11 @@ pub struct TendermintParams {
     pub signer: Signer,
 }
 
-fn to_duration(s: u64) -> Duration {
-    Duration::from_millis(s)
-}
-
-impl From<Config> for TendermintParams {
-    fn from(config: Config) -> Self {
-        let dt = TendermintTimer::default();
-        TendermintParams {
-            signer: Signer::from(config.signer),
-            timer: TendermintTimer {
-                propose: config.timeout_propose.map_or(dt.propose, to_duration),
-                prevote: config.timeout_prevote.map_or(dt.prevote, to_duration),
-                precommit: config.timeout_precommit.map_or(dt.precommit, to_duration),
-                commit: config.timeout_commit.map_or(dt.commit, to_duration),
-            },
-        }
-    }
-}
-
 impl TendermintParams {
-    pub fn new(path: &str) -> Self {
-        let config = parse_config!(Config, path);
-        config.into()
+    pub fn new(priv_key: &PrivateKey) -> Self {
+        TendermintParams {
+            signer: Signer::from(priv_key.signer),
+            timer: TendermintTimer::default(),
+        }
     }
 }

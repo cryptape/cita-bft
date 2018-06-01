@@ -54,6 +54,7 @@
 extern crate authority_manage;
 extern crate bincode;
 extern crate cita_crypto as crypto;
+extern crate cita_types as types;
 extern crate clap;
 extern crate cpuprofiler;
 extern crate dotenv;
@@ -82,8 +83,7 @@ use std::thread;
 
 mod core;
 use core::cita_bft::TenderMint;
-use core::ntp::Ntp;
-use core::params::TendermintParams;
+use core::params::{Config, PrivateKey, TendermintParams};
 use core::votetime::WaitTimer;
 use cpuprofiler::PROFILER;
 use libproto::router::{MsgType, RoutingKey, SubModules};
@@ -116,6 +116,7 @@ include!(concat!(env!("OUT_DIR"), "/build_info.rs"));
 
 fn main() {
     micro_service_init!("cita-bft", "CITA:consensus:cita-bft");
+    info!("Version: {}", get_build_info_str(true));
 
     let matches = App::new("cita-bft")
         .version(get_build_info_str(true))
@@ -123,21 +124,25 @@ fn main() {
         .author("Cryptape")
         .about("CITA Block Chain Node powered by Rust")
         .args_from_usage("-c, --config=[FILE] 'Sets a custom config file'")
-        .args_from_usage("-n, --ntp=[FILE] 'Sets a ntp config file'")
-        .args_from_usage("--prof-start=[0] 'Specify the start time of profiling, zero means no profiling'")
-        .args_from_usage("--prof-duration=[0] 'Specify the duration for profiling, zero means no profiling'")
+        .args_from_usage("-p, --private=[FILE] 'Sets a private key file'")
+        .args_from_usage(
+            "--prof-start=[0] 'Specify the start time of profiling, zero means no profiling'",
+        )
+        .args_from_usage(
+            "--prof-duration=[0] 'Specify the duration for profiling, zero means no profiling'",
+        )
         .get_matches();
 
-    let mut config_path = "config";
+    let mut config_path = "consensus.toml";
     if let Some(c) = matches.value_of("config") {
         trace!("Value for config: {}", c);
         config_path = c;
     }
 
-    let mut ntp_path = "ntp";
-    if let Some(ntp) = matches.value_of("ntp") {
-        trace!("Value for ntp: {}", ntp);
-        ntp_path = ntp;
+    let mut pk_path = "privkey";
+    if let Some(p) = matches.value_of("private") {
+        trace!("Value for config: {}", p);
+        pk_path = p;
     }
 
     let flag_prof_start = matches
@@ -186,15 +191,21 @@ fn main() {
         });
     });
 
+    let config = Config::new(config_path);
+    info!("CITA:bft config \n {:?}", config);
+
+    let pk = PrivateKey::new(pk_path);
+    info!("CITA:bft signer \n {:?}", pk);
+
     // main cita-bft loop module
-    let params = TendermintParams::new(config_path);
+    let params = TendermintParams::new(&pk);
     let mainthd = thread::spawn(move || {
         let mut engine = TenderMint::new(tx_pub, main4mq, main2timer, main4timer, params);
         engine.start();
     });
 
     // NTP service
-    let ntp_config = Ntp::new(ntp_path);
+    let ntp_config = config.ntp_config.clone();
     // Default
     // let ntp_config = Ntp {
     //     enabled: true,
@@ -205,7 +216,7 @@ fn main() {
 
     if ntp_config.enabled {
         thread::spawn(move || loop {
-            if ntp_config.clock_offset_overflow() {
+            if ntp_config.is_clock_offset_overflow() {
                 warn!("System clock seems off!!!");
                 log_tag += 1;
                 if log_tag == 10 {

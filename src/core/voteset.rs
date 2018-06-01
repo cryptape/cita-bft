@@ -15,14 +15,15 @@
 // You should have received a copy of the GNU General Public License
 // along with this program.  If not, see <http://www.gnu.org/licenses/>.
 
-use super::{Address, Step};
+use super::Step;
 use bincode::{serialize, Infinite};
 use crypto::{pubkey_to_address, Sign, Signature};
 use libproto::blockchain::{Block, Transaction};
 use lru_cache::LruCache;
 use std::collections::HashMap;
 use std::convert::TryFrom;
-use util::{H256, Hashable, BLOCKLIMIT};
+use types::{Address, H256};
+use util::{Hashable, BLOCKLIMIT};
 
 // height -> round collector
 #[derive(Debug)]
@@ -37,7 +38,14 @@ impl VoteCollector {
         }
     }
 
-    pub fn add(&mut self, height: usize, round: usize, step: Step, sender: Address, vote: VoteMessage) -> bool {
+    pub fn add(
+        &mut self,
+        height: usize,
+        round: usize,
+        step: Step,
+        sender: Address,
+        vote: VoteMessage,
+    ) -> bool {
         if self.votes.contains_key(&height) {
             self.votes
                 .get_mut(&height)
@@ -164,15 +172,19 @@ impl VoteSet {
             if let Some(h) = proposal {
                 hash = h;
             }
-            if let Some(c) = self.votes_by_proposal.insert(hash, 1) {
-                self.votes_by_proposal.insert(hash, c + 1);
-            }
+            *self.votes_by_proposal.entry(hash).or_insert(0) += 1;
             true
         }
     }
 
-    pub fn check(&self, h: usize, r: usize, step: Step, authorities: &[Address]) -> Result<Option<H256>, &str> {
-        let mut votes_by_proposal = HashMap::new();
+    pub fn check(
+        &self,
+        h: usize,
+        r: usize,
+        step: Step,
+        authorities: &[Address],
+    ) -> Result<Option<H256>, &str> {
+        let mut votes_by_proposal: HashMap<H256, usize> = HashMap::new();
         for (sender, vote) in &self.votes_by_sender {
             if authorities.contains(sender) {
                 let msg = serialize(&(h, r, step, sender, vote.proposal), Infinite).unwrap();
@@ -184,9 +196,7 @@ impl VoteSet {
                             hash = h;
                         }
                         // inc the count of vote for hash
-                        if let Some(c) = votes_by_proposal.insert(hash, 1) {
-                            votes_by_proposal.insert(hash, c + 1);
-                        }
+                        *votes_by_proposal.entry(hash).or_insert(0) += 1;
                     }
                 }
             }
@@ -286,7 +296,8 @@ pub struct Proposal {
 pub fn verify_tx(tx: &Transaction, height: u64) -> bool {
     let nonce = tx.get_nonce();
     let valid_until_block = tx.get_valid_until_block();
-    (nonce.len() <= 128) && (height <= valid_until_block && valid_until_block < (height + BLOCKLIMIT))
+    (nonce.len() <= 128)
+        && (height <= valid_until_block && valid_until_block < (height + BLOCKLIMIT))
 }
 
 impl Proposal {
@@ -296,7 +307,8 @@ impl Proposal {
         } else {
             let round = self.lock_round.unwrap();
 
-            let ret = self.lock_votes
+            let ret = self
+                .lock_votes
                 .as_ref()
                 .unwrap()
                 .check(h, round, Step::Prevote, authorities);

@@ -28,11 +28,11 @@ use core::wal::Wal;
 
 use crypto::{pubkey_to_address, CreateKey, Sign, Signature, SIGNATURE_BYTES_LEN};
 use engine::{unix_now, AsMillis, EngineError, Mismatch};
-use libproto::{auth, Message};
 use libproto::blockchain::{Block, BlockTxs, BlockWithProof, RichStatus};
 use libproto::consensus::{Proposal as ProtoProposal, SignedProposal, Vote as ProtoVote};
 use libproto::router::{MsgType, RoutingKey, SubModules};
 use libproto::snapshot::{Cmd, Resp, SnapshotResp};
+use libproto::{auth, Message};
 use proof::TendermintProof;
 use protobuf::RepeatedField;
 use std::collections::{HashMap, VecDeque};
@@ -40,8 +40,9 @@ use std::fs;
 use std::sync::mpsc::{Receiver, RecvError, Sender};
 use std::time::{Duration, Instant};
 
-use util::{Address, H256, Hashable};
+use types::{Address, H256};
 use util::datapath::DataPath;
+use util::Hashable;
 
 const INIT_HEIGHT: usize = 1;
 const INIT_ROUND: usize = 0;
@@ -192,7 +193,12 @@ impl TenderMint {
         self.is_snapshot = b;
     }
 
-    fn is_round_proposer(&self, height: usize, round: usize, address: &Address) -> Result<(), EngineError> {
+    fn is_round_proposer(
+        &self,
+        height: usize,
+        round: usize,
+        address: &Address,
+    ) -> Result<(), EngineError> {
         //let ref p = self.params;
         let p = &self.auth_manage;
         if p.authority_n == 0 {
@@ -300,7 +306,7 @@ impl TenderMint {
         }
         //this is for timeout resending votes
         self.timer_seter.send(TimeoutInfo {
-            timeval: self.params.timer.prevote * TIMEOUT_RETRANSE_MULTIPLE,
+            timeval: self.params.timer.get_prevote() * TIMEOUT_RETRANSE_MULTIPLE,
             height: height,
             round: round,
             step: Step::Prevote,
@@ -312,7 +318,8 @@ impl TenderMint {
             "proc_prevote begin height {}, round {} vs self {}, round {}",
             height, round, self.height, self.round
         );
-        if height < self.height || (height == self.height && round < self.round)
+        if height < self.height
+            || (height == self.height && round < self.round)
             || (height == self.height && self.round == round && self.step > Step::PrevoteWait)
         {
             return false;
@@ -325,13 +332,16 @@ impl TenderMint {
                 let mut tv = if self.is_all_vote(&vote_set.count) {
                     Duration::new(0, 0)
                 } else {
-                    self.params.timer.prevote
+                    self.params.timer.get_prevote()
                 };
 
                 for (hash, count) in &vote_set.votes_by_proposal {
                     if self.is_above_threshold(count) {
                         //we have lock block,and now polc  then unlock
-                        if self.lock_round.is_some() && self.lock_round.unwrap() < round && round <= self.round {
+                        if self.lock_round.is_some()
+                            && self.lock_round.unwrap() < round
+                            && round <= self.round
+                        {
                             //we see new lock block unlock mine
                             trace!("unlock lock block height {:?}, hash {:?}", height, hash);
                             self.lock_round = None;
@@ -425,7 +435,7 @@ impl TenderMint {
 
         //timeout for resending vote msg
         self.timer_seter.send(TimeoutInfo {
-            timeval: self.params.timer.precommit * TIMEOUT_RETRANSE_MULTIPLE,
+            timeval: self.params.timer.get_precommit() * TIMEOUT_RETRANSE_MULTIPLE,
             height: self.height,
             round: self.round,
             step: Step::Precommit,
@@ -442,7 +452,8 @@ impl TenderMint {
             "proc_precommit begin {} {} vs self {} {}",
             height, round, self.height, self.round
         );
-        if height < self.height || (height == self.height && round < self.round)
+        if height < self.height
+            || (height == self.height && round < self.round)
             || (height == self.height && self.round == round && self.step > Step::PrecommitWait)
         {
             return false;
@@ -466,7 +477,7 @@ impl TenderMint {
                 let mut tv = if self.is_all_vote(&vote_set.count) {
                     Duration::new(0, 0)
                 } else {
-                    self.params.timer.precommit
+                    self.params.timer.get_precommit()
                 };
 
                 for (hash, count) in vote_set.votes_by_proposal {
@@ -557,10 +568,12 @@ impl TenderMint {
 
             if self.proof.height != now_height && now_height > 0 {
                 if let Some(phash) = self.proposal {
-                    let mut res = self.last_commit_round
+                    let mut res = self
+                        .last_commit_round
                         .and_then(|cround| self.generate_proof(now_height, cround, phash));
                     if res.is_none() {
-                        res = self.lock_round
+                        res = self
+                            .lock_round
                             .and_then(|cround| self.generate_proof(now_height, cround, phash));
                     }
                     if let Some(proof) = res {
@@ -588,7 +601,12 @@ impl TenderMint {
         false
     }
 
-    fn generate_proof(&mut self, height: usize, round: usize, hash: H256) -> Option<TendermintProof> {
+    fn generate_proof(
+        &mut self,
+        height: usize,
+        round: usize,
+        hash: H256,
+    ) -> Option<TendermintProof> {
         let mut commits = HashMap::new();
         {
             let vote_set = self.votes.get_voteset(height, round, Step::Precommit);
@@ -681,7 +699,13 @@ impl TenderMint {
             .unwrap();
     }
 
-    fn pub_and_broadcast_message(&mut self, height: usize, round: usize, step: Step, hash: Option<H256>) {
+    fn pub_and_broadcast_message(
+        &mut self,
+        height: usize,
+        round: usize,
+        step: Step,
+        hash: Option<H256>,
+    ) {
         let author = &self.params.signer;
         let msg = serialize(&(height, round, step, author.address, hash), Infinite).unwrap();
         let signature = Signature::sign(author.keypair.privkey(), &msg.crypt_hash()).unwrap();
@@ -741,7 +765,11 @@ impl TenderMint {
         }
     }
 
-    fn handle_message(&mut self, message: &[u8], wal_flag: bool) -> Result<(usize, usize, Step), EngineError> {
+    fn handle_message(
+        &mut self,
+        message: &[u8],
+        wal_flag: bool,
+    ) -> Result<(usize, usize, Step), EngineError> {
         trace!("handle_message beginning now !");
         let log_msg = message.to_owned();
         let res = deserialize(&message[..]);
@@ -786,7 +814,9 @@ impl TenderMint {
                                     trans_flag = true;
                                 }
                             } else if fround == r && step == fstep
-                                && now - ins > self.params.timer.prevote * TIMEOUT_LOW_ROUND_MESSAGE_MULTIPLE
+                                && now - ins
+                                    > self.params.timer.get_prevote()
+                                        * TIMEOUT_LOW_ROUND_MESSAGE_MULTIPLE
                             {
                                 add_flag = true;
                                 trans_flag = true;
@@ -905,7 +935,8 @@ impl TenderMint {
 
             let proposal_lock_round = proposal.lock_round;
             //we have lock block,try unlock
-            if self.lock_round.is_some() && proposal_lock_round.is_some()
+            if self.lock_round.is_some()
+                && proposal_lock_round.is_some()
                 && self.lock_round.unwrap() < proposal_lock_round.unwrap()
                 && proposal_lock_round.unwrap() < round
             {
@@ -1016,7 +1047,9 @@ impl TenderMint {
                 let height = proto_proposal.get_height() as usize;
                 let round = proto_proposal.get_round() as usize;
                 if height < self.height || (height == self.height && round < self.round)
-                    || (height == self.height && round == self.round && self.step > Step::ProposeWait)
+                    || (height == self.height
+                        && round == self.round
+                        && self.step > Step::ProposeWait)
                 {
                     trace!(
                         "handle proposal get old proposal now height {} round {} step {:?}",
@@ -1115,7 +1148,8 @@ impl TenderMint {
     // use iter + cloned, do not copy all block_txs
     fn clean_block_txs(&mut self) {
         let height = self.height - 1;
-        self.block_txs = self.block_txs
+        self.block_txs = self
+            .block_txs
             .iter()
             .filter(|&&(hi, _)| hi >= height)
             .cloned()
@@ -1250,10 +1284,15 @@ impl TenderMint {
         if tminfo.height < self.height {
             return;
         }
-        if tminfo.height == self.height && tminfo.round < self.round && tminfo.step != Step::CommitWait {
+        if tminfo.height == self.height
+            && tminfo.round < self.round
+            && tminfo.step != Step::CommitWait
+        {
             return;
         }
-        if tminfo.height == self.height && tminfo.round == self.round && tminfo.step != self.step
+        if tminfo.height == self.height
+            && tminfo.round == self.round
+            && tminfo.step != self.step
             && tminfo.step != Step::CommitWait
         {
             return;
@@ -1288,7 +1327,7 @@ impl TenderMint {
             } else {
                 self.change_state_step(tminfo.height, tminfo.round, Step::PrecommitAuth, false);
                 self.timer_seter.send(TimeoutInfo {
-                    timeval: self.params.timer.prevote * TIMEOUT_RETRANSE_MULTIPLE,
+                    timeval: self.params.timer.get_prevote() * TIMEOUT_RETRANSE_MULTIPLE,
                     height: tminfo.height,
                     round: tminfo.round,
                     step: Step::PrecommitAuth,
@@ -1442,8 +1481,18 @@ impl TenderMint {
                             }
                         } else {
                             self.clean_saved_info();
-                            self.pub_and_broadcast_message(vheight, vround, Step::Prevote, Some(H256::default()));
-                            self.pub_and_broadcast_message(vheight, vround, Step::Precommit, Some(H256::default()));
+                            self.pub_and_broadcast_message(
+                                vheight,
+                                vround,
+                                Step::Prevote,
+                                Some(H256::default()),
+                            );
+                            self.pub_and_broadcast_message(
+                                vheight,
+                                vround,
+                                Step::Precommit,
+                                Some(H256::default()),
+                            );
                             self.change_state_step(vheight, vround, Step::Precommit, false);
                             self.proc_precommit(vheight, vround);
                         }
@@ -1465,8 +1514,10 @@ impl TenderMint {
                     let now_round = self.round;
                     let now_step = self.step;
                     if now_height == height + 1
-                        && self.is_round_proposer(now_height, now_round, &self.params.signer.address)
-                            .is_ok() && now_step == Step::ProposeWait && self.proposal.is_none()
+                        && self
+                            .is_round_proposer(now_height, now_round, &self.params.signer.address)
+                            .is_ok() && now_step == Step::ProposeWait
+                        && self.proposal.is_none()
                     {
                         self.new_proposal();
                         self.timer_seter.send(TimeoutInfo {
@@ -1529,6 +1580,8 @@ impl TenderMint {
 
     fn receive_new_status(&mut self, status: &RichStatus) {
         let status_height = status.height as usize;
+        self.params.timer.set_total_duration(status.interval);
+
         let height = self.height;
         let round = self.round;
         let step = self.step;
@@ -1575,7 +1628,7 @@ impl TenderMint {
         }
 
         let cost_time = Instant::now() - self.htime;
-        let mut tv = self.params.timer.commit;
+        let mut tv = self.params.timer.get_commit();
         let interval = Duration::from_millis(status.interval);
         if height > status_height
         //|| self.is_round_proposer(status_height+1,INIT_ROUND,&self.params.signer.address).is_ok()
@@ -1599,10 +1652,11 @@ impl TenderMint {
     }
 
     fn new_round_start(&mut self, height: usize, round: usize) {
-        let mut tv = self.params.timer.propose * ((round + 1) as u32);
+        let mut tv = self.params.timer.get_propose() * ((round + 1) as u32);
         if self.proposals.get_proposal(height, round).is_some() {
             tv = Duration::new(0, 0);
-        } else if self.is_round_proposer(height, round, &self.params.signer.address)
+        } else if self
+            .is_round_proposer(height, round, &self.params.signer.address)
             .is_ok()
         {
             self.new_proposal();
@@ -1631,7 +1685,7 @@ impl TenderMint {
 
             if self.step == Step::PrevoteWait {
                 self.timer_seter.send(TimeoutInfo {
-                    timeval: self.params.timer.prevote,
+                    timeval: self.params.timer.get_prevote(),
                     height: height,
                     round: round,
                     step: Step::PrevoteWait,
@@ -1642,7 +1696,7 @@ impl TenderMint {
             self.proc_precommit(height, round);
             if self.step == Step::PrecommitWait {
                 self.timer_seter.send(TimeoutInfo {
-                    timeval: self.params.timer.precommit,
+                    timeval: self.params.timer.get_precommit(),
                     height: height,
                     round: round,
                     step: Step::PrecommitWait,
@@ -1663,7 +1717,7 @@ impl TenderMint {
         } else if self.step == Step::CommitWait {
             /*self.timer_seter.send(
                     TimeoutInfo{
-                        timeval:self.params.timer.commit,
+                        timeval:self.params.timer.get_commit(),
                         height:height,
                         round:round,
                         step:Step::CommitWait});*/
