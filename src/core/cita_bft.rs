@@ -130,6 +130,7 @@ pub struct TenderMint {
     send_filter: HashMap<Address, (usize, Step, Instant)>,
     last_commit_round: Option<usize>,
     htime: Instant,
+    timestamp: u64,
     auth_manage: AuthorityManage,
     consensus_power: bool,
     unverified_msg: HashMap<(usize, usize), Message>,
@@ -174,6 +175,7 @@ impl TenderMint {
             send_filter: HashMap::new(),
             last_commit_round: None,
             htime: Instant::now(),
+            timestamp: 0,
             auth_manage: AuthorityManage::new(),
             consensus_power: false,
             unverified_msg: HashMap::new(),
@@ -1066,11 +1068,23 @@ impl TenderMint {
                     pubkey_to_address(&pubkey)
                 );
 
+                // verify the timestamp
+                let block_timestamp = block.get_header().timestamp;
+                let time_interval: u64 = 3000;
+                if self.timestamp + time_interval <= block_timestamp {
+                    self.timestamp = block_timestamp
+                } else {
+                    trace!("handle proposal timestamp is unvalid");
+                    return Err(EngineError::InvalidTimeInterval);
+                }
+
+                // verify the txs in this proposal
                 if need_verify && !self.verify_req(&block, height, round) {
                     trace!("handle_proposal verify_req is error");
                     return Err(EngineError::InvalidTxInProposal);
                 }
 
+                // check the proposer's validity
                 let ret = self.is_round_proposer(height, round, &pubkey_to_address(&pubkey));
                 if ret.is_err() {
                     trace!("handle_proposal is_round_proposer {:?}", ret);
