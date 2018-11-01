@@ -17,13 +17,13 @@
 
 use core::cita_bft::Step;
 use std::sync::mpsc::{Receiver, Sender};
-// use std::thread;
 use std::time::{Duration, Instant};
-use threadpool::ThreadPool;
+// use std::thread
+// use threadpool::ThreadPool;
 
 extern crate min_max_heap;
 
-const THREAD_POOL_NUM: usize = 10;
+// const THREAD_POOL_NUM: usize = 10;
 
 #[derive(Debug, Clone)]
 pub struct TimeoutInfo {
@@ -37,18 +37,18 @@ pub struct TimeoutInfo {
 pub struct WaitTimer {
     timer_seter: Receiver<TimeoutInfo>,
     timer_notify: Sender<TimeoutInfo>,
-    thpool: ThreadPool,
+    // thpool: ThreadPool,
 }
 
 //unsafe impl ::std::marker::Sync for WaitTimer {}
 
 impl WaitTimer {
     pub fn new(ts: Sender<TimeoutInfo>, rs: Receiver<TimeoutInfo>) -> WaitTimer {
-        let pool = ThreadPool::new(THREAD_POOL_NUM);
+        // let pool = ThreadPool::new(THREAD_POOL_NUM);
         WaitTimer {
             timer_notify: ts,
             timer_seter: rs,
-            thpool: pool,
+            // thpool: pool,
         }
     }
 
@@ -57,6 +57,7 @@ impl WaitTimer {
         let mut timer_heap = min_max_heap::MinMaxHeap::new();
 
         loop {
+            // take the peek of the min-heap-timer sub now as the sleep time otherwise set timeout as 0
             let timeout = if !timer_heap.is_empty() {
                 timer_heap.peek_min().cloned().unwrap() - Instant::now()
             } else {
@@ -68,10 +69,11 @@ impl WaitTimer {
             if set_time.is_ok() {
                 timer_heap.push(set_time.unwrap().timeval);
             }
-
+            
             if !timer_heap.is_empty() {
                 let now = Instant::now();
                 let notify = self.timer_notify.clone();
+                // if some timers are set as the same time, send timeout messages and pop them
                 while now >= timer_heap.peek_min().cloned().unwrap() {
                     notify.send(innersetter.recv().unwrap()).unwrap();
                     timer_heap.pop_min();
