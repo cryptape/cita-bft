@@ -122,9 +122,11 @@ fn main() {
         .args_from_usage("-p, --private=[FILE] 'Sets a private key file'")
         .args_from_usage(
             "--prof-start=[0] 'Specify the start time of profiling, zero means no profiling'",
-        ).args_from_usage(
+        )
+        .args_from_usage(
             "--prof-duration=[0] 'Specify the duration for profiling, zero means no profiling'",
-        ).get_matches();
+        )
+        .get_matches();
 
     let mut config_path = "consensus.toml";
     if let Some(c) = matches.value_of("config") {

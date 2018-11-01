@@ -18,14 +18,16 @@
 use core::cita_bft::Step;
 use std::sync::mpsc::{Receiver, Sender};
 use std::thread;
-use std::time::Duration;
+use std::time::{Duration, Instant};
 use threadpool::ThreadPool;
+
+extern crate min_max_heap;
 
 const THREAD_POOL_NUM: usize = 10;
 
-#[derive(Debug, Default, Clone)]
+#[derive(Debug, Clone)]
 pub struct TimeoutInfo {
-    pub timeval: Duration,
+    pub timeval: Instant,
     pub height: usize,
     pub round: usize,
     pub step: Step,
@@ -52,23 +54,26 @@ impl WaitTimer {
 
     pub fn start(&self) {
         let innersetter = &self.timer_seter;
-        let zero_time = ::std::time::Duration::new(0, 0);
-        loop {
-            select! {
-                settime = innersetter.recv() =>  {
-                    let oksettime = settime.unwrap();
-                    let notify = self.timer_notify.clone();
+        let mut timer_heap = min_max_heap::MinMaxHeap::new();
 
-                    if oksettime.timeval == zero_time {
-                        notify.send(oksettime).unwrap();
-                    } else {
-                        self.thpool.execute(move || {
-                            trace!(" ************ {:?}",oksettime);
-                            thread::sleep(oksettime.timeval);
-                            notify.send(oksettime).unwrap();
-                        });
-                    }
-                }
+        loop {
+            let mut timeout = if !timer_heap.is_empty() {
+                timeout = timer_heap.peek_min().cloned().unwrap() - Instant::now();
+            } else {
+                Duration::from_millis(0);
+            };
+
+            let set_time = innersetter.recv_timeout(timeout);
+
+            if set_time.is_ok() {
+                timer_heap.push(set_time.unwrap().timeval);
+            }
+
+            let now = Instant::now();
+            let notify = self.timer_notify.clone();
+            while now >= timer_heap.peek_min().cloned().unwrap() {
+                notify.send(innersetter.recv().unwrap()).unwrap();
+                timer_heap.pop_min();
             }
         }
     }
