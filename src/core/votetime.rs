@@ -17,7 +17,7 @@
 
 use core::cita_bft::Step;
 use std::sync::mpsc::{Receiver, Sender};
-use std::thread;
+// use std::thread;
 use std::time::{Duration, Instant};
 use threadpool::ThreadPool;
 
@@ -57,10 +57,10 @@ impl WaitTimer {
         let mut timer_heap = min_max_heap::MinMaxHeap::new();
 
         loop {
-            let mut timeout = if !timer_heap.is_empty() {
-                timeout = timer_heap.peek_min().cloned().unwrap() - Instant::now();
+            let timeout = if !timer_heap.is_empty() {
+                timer_heap.peek_min().cloned().unwrap() - Instant::now()
             } else {
-                Duration::from_millis(0);
+                Duration::from_millis(0)
             };
 
             let set_time = innersetter.recv_timeout(timeout);
@@ -69,11 +69,13 @@ impl WaitTimer {
                 timer_heap.push(set_time.unwrap().timeval);
             }
 
-            let now = Instant::now();
-            let notify = self.timer_notify.clone();
-            while now >= timer_heap.peek_min().cloned().unwrap() {
-                notify.send(innersetter.recv().unwrap()).unwrap();
-                timer_heap.pop_min();
+            if !timer_heap.is_empty() {
+                let now = Instant::now();
+                let notify = self.timer_notify.clone();
+                while now >= timer_heap.peek_min().cloned().unwrap() {
+                    notify.send(innersetter.recv().unwrap()).unwrap();
+                    timer_heap.pop_min();
+                }
             }
         }
     }
