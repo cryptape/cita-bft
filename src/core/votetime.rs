@@ -69,7 +69,7 @@ impl WaitTimer {
             if set_time.is_ok() {
                 timer_heap.push(set_time.unwrap().timeval);
             }
-            
+
             if !timer_heap.is_empty() {
                 let now = Instant::now();
                 let notify = self.timer_notify.clone();
