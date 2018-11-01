@@ -72,7 +72,7 @@ impl WaitTimer {
             if !timer_heap.is_empty() {
                 let now = Instant::now();
                 let notify = self.timer_notify.clone();
-                
+
                 // if some timers are set as the same time, send timeout messages and pop them
                 while !timer_heap.is_empty() && now >= timer_heap.peek_min().cloned().unwrap() {
                     notify.send(innersetter.recv().unwrap()).unwrap();
