@@ -14,14 +14,13 @@
 
 // You should have received a copy of the GNU General Public License
 // along with this program.  If not, see <http://www.gnu.org/licenses/>.
+extern crate min_max_heap;
 
 use core::cita_bft::Step;
 use std::sync::mpsc::{Receiver, Sender};
 use std::time::{Duration, Instant};
 // use std::thread
 // use threadpool::ThreadPool;
-
-extern crate min_max_heap;
 
 // const THREAD_POOL_NUM: usize = 10;
 
@@ -61,7 +60,7 @@ impl WaitTimer {
             let timeout = if !timer_heap.is_empty() {
                 timer_heap.peek_min().cloned().unwrap() - Instant::now()
             } else {
-                Duration::from_millis(0)
+                Duration::from_secs(100)
             };
 
             let set_time = innersetter.recv_timeout(timeout);
@@ -73,8 +72,9 @@ impl WaitTimer {
             if !timer_heap.is_empty() {
                 let now = Instant::now();
                 let notify = self.timer_notify.clone();
+                
                 // if some timers are set as the same time, send timeout messages and pop them
-                while now >= timer_heap.peek_min().cloned().unwrap() {
+                while !timer_heap.is_empty() && now >= timer_heap.peek_min().cloned().unwrap() {
                     notify.send(innersetter.recv().unwrap()).unwrap();
                     timer_heap.pop_min();
                 }
