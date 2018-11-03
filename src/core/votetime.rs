@@ -14,15 +14,12 @@
 
 // You should have received a copy of the GNU General Public License
 // along with this program.  If not, see <http://www.gnu.org/licenses/>.
-extern crate min_max_heap;
 
 use core::cita_bft::Step;
+use min_max_heap::MinMaxHeap;
+use std::collections::HashMap;
 use std::sync::mpsc::{Receiver, Sender};
 use std::time::{Duration, Instant};
-// use std::thread
-// use threadpool::ThreadPool;
-
-// const THREAD_POOL_NUM: usize = 10;
 
 #[derive(Debug, Clone)]
 pub struct TimeoutInfo {
@@ -52,31 +49,35 @@ impl WaitTimer {
     }
 
     pub fn start(&self) {
-        let innersetter = &self.timer_seter;
-        let mut timer_heap = min_max_heap::MinMaxHeap::new();
+        let mut timer_heap = MinMaxHeap::new();
+        let mut timeout_info = HashMap::new();
 
         loop {
-            // take the peek of the min-heap-timer sub now as the sleep time otherwise set timeout as 0
+            // take the peek of the min-heap-timer sub now as the sleep time otherwise set timeout as 100
             let timeout = if !timer_heap.is_empty() {
-                timer_heap.peek_min().cloned().unwrap() - Instant::now()
+                *timer_heap.peek_min().unwrap() - Instant::now()
             } else {
                 Duration::from_secs(100)
             };
 
-            let set_time = innersetter.recv_timeout(timeout);
+            let set_time = self.timer_seter.recv_timeout(timeout);
 
+            // put the timeval into a timerheap
+            // put the TimeoutInfo into a hashmap, K: timeval  V: TimeoutInfo
             if set_time.is_ok() {
-                timer_heap.push(set_time.unwrap().timeval);
+                let time_out = set_time.unwrap();
+                timer_heap.push(time_out.timeval);
+                timeout_info.insert(time_out.timeval, time_out);
             }
 
             if !timer_heap.is_empty() {
                 let now = Instant::now();
-                let notify = self.timer_notify.clone();
 
                 // if some timers are set as the same time, send timeout messages and pop them
                 while !timer_heap.is_empty() && now >= timer_heap.peek_min().cloned().unwrap() {
-                    notify.send(innersetter.recv().unwrap()).unwrap();
-                    timer_heap.pop_min();
+                    self.timer_notify
+                        .send(timeout_info.remove(&timer_heap.pop_min().unwrap()).unwrap())
+                        .unwrap();
                 }
             }
         }
