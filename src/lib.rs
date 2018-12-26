@@ -59,12 +59,12 @@ extern crate cpuprofiler;
 extern crate dotenv;
 extern crate engine;
 extern crate hashable;
-extern crate min_max_heap;
 #[macro_use]
 extern crate libproto;
 #[macro_use]
 extern crate logger;
 extern crate lru_cache;
+extern crate min_max_heap;
 extern crate ntp;
 extern crate proof;
 extern crate pubsub;
@@ -77,19 +77,19 @@ extern crate time;
 extern crate util;
 
 use clap::App;
-use std::sync::mpsc::channel;
-use std::thread;
-
-mod core;
 use core::cita_bft::Bft;
 use core::params::{BftParams, Config, PrivateKey};
 use core::votetime::WaitTimer;
 use cpuprofiler::PROFILER;
 use libproto::router::{MsgType, RoutingKey, SubModules};
 use pubsub::start_pubsub;
+use std::sync::mpsc::channel;
+use std::thread;
 use std::thread::sleep;
 use std::time::Duration;
 use util::set_panic_handler;
+
+mod core;
 
 const THREAD_POOL_NUM: usize = 10;
 
@@ -113,7 +113,8 @@ fn profiler(flag_prof_start: u64, flag_prof_duration: u64) {
 
 include!(concat!(env!("OUT_DIR"), "/build_info.rs"));
 
-fn main() {
+#[allow(dead_code)]
+pub fn entry() {
     micro_service_init!("cita-bft", "CITA:consensus:cita-bft");
     info!("Version: {}", get_build_info_str(true));
 

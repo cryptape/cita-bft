@@ -235,36 +235,6 @@ dependencies = [
 ]
 
 [[package]]
-name = "cita-bft"
-version = "0.1.0"
-dependencies = [
- "authority_manage 0.1.0 (git+https://github.com/cryptape/cita-common.git?branch=develop)",
- "bincode 0.8.0 (registry+https://github.com/rust-lang/crates.io-index)",
- "cita-crypto 0.1.0 (git+https://github.com/cryptape/cita-common.git?branch=develop)",
- "cita-directories 0.1.0 (git+https://github.com/cryptape/cita-common.git?branch=develop)",
- "cita-types 0.1.0 (git+https://github.com/cryptape/cita-common.git?branch=develop)",
- "clap 2.32.0 (registry+https://github.com/rust-lang/crates.io-index)",
- "cpuprofiler 0.0.3 (registry+https://github.com/rust-lang/crates.io-index)",
- "dotenv 0.13.0 (registry+https://github.com/rust-lang/crates.io-index)",
- "engine 0.6.0 (git+https://github.com/cryptape/cita-common.git?branch=develop)",
- "hashable 0.1.0 (git+https://github.com/cryptape/cita-common.git?branch=develop)",
- "libproto 0.6.0 (git+https://github.com/cryptape/cita-common.git?branch=develop)",
- "logger 0.1.0 (git+https://github.com/cryptape/cita-common.git?branch=develop)",
- "lru-cache 0.1.1 (registry+https://github.com/rust-lang/crates.io-index)",
- "min-max-heap 1.2.0 (registry+https://github.com/rust-lang/crates.io-index)",
- "ntp 0.4.0 (registry+https://github.com/rust-lang/crates.io-index)",
- "proof 0.6.0 (git+https://github.com/cryptape/cita-common.git?branch=develop)",
- "pubsub 0.6.0 (git+https://github.com/cryptape/cita-common.git?branch=develop)",
- "rustc-hex 1.0.0 (registry+https://github.com/rust-lang/crates.io-index)",
- "rustc-serialize 0.3.24 (registry+https://github.com/rust-lang/crates.io-index)",
- "serde 1.0.79 (registry+https://github.com/rust-lang/crates.io-index)",
- "serde_derive 1.0.79 (registry+https://github.com/rust-lang/crates.io-index)",
- "threadpool 1.7.1 (registry+https://github.com/rust-lang/crates.io-index)",
- "time 0.1.40 (registry+https://github.com/rust-lang/crates.io-index)",
- "util 0.6.0 (git+https://github.com/cryptape/cita-common.git?branch=develop)",
-]
-
-[[package]]
 name = "cita-crypto"
 version = "0.1.0"
 source = "git+https://github.com/cryptape/cita-common.git?branch=develop#ba0b5883c182e7c57dcc0fc745893b9ff6cb3926"
@@ -895,6 +865,36 @@ dependencies = [
 name = "lazycell"
 version = "1.2.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
+
+[[package]]
+name = "libbft"
+version = "1.0.0"
+dependencies = [
+ "authority_manage 0.1.0 (git+https://github.com/cryptape/cita-common.git?branch=develop)",
+ "bincode 0.8.0 (registry+https://github.com/rust-lang/crates.io-index)",
+ "cita-crypto 0.1.0 (git+https://github.com/cryptape/cita-common.git?branch=develop)",
+ "cita-directories 0.1.0 (git+https://github.com/cryptape/cita-common.git?branch=develop)",
+ "cita-types 0.1.0 (git+https://github.com/cryptape/cita-common.git?branch=develop)",
+ "clap 2.32.0 (registry+https://github.com/rust-lang/crates.io-index)",
+ "cpuprofiler 0.0.3 (registry+https://github.com/rust-lang/crates.io-index)",
+ "dotenv 0.13.0 (registry+https://github.com/rust-lang/crates.io-index)",
+ "engine 0.6.0 (git+https://github.com/cryptape/cita-common.git?branch=develop)",
+ "hashable 0.1.0 (git+https://github.com/cryptape/cita-common.git?branch=develop)",
+ "libproto 0.6.0 (git+https://github.com/cryptape/cita-common.git?branch=develop)",
+ "logger 0.1.0 (git+https://github.com/cryptape/cita-common.git?branch=develop)",
+ "lru-cache 0.1.1 (registry+https://github.com/rust-lang/crates.io-index)",
+ "min-max-heap 1.2.0 (registry+https://github.com/rust-lang/crates.io-index)",
+ "ntp 0.4.0 (registry+https://github.com/rust-lang/crates.io-index)",
+ "proof 0.6.0 (git+https://github.com/cryptape/cita-common.git?branch=develop)",
+ "pubsub 0.6.0 (git+https://github.com/cryptape/cita-common.git?branch=develop)",
+ "rustc-hex 1.0.0 (registry+https://github.com/rust-lang/crates.io-index)",
+ "rustc-serialize 0.3.24 (registry+https://github.com/rust-lang/crates.io-index)",
+ "serde 1.0.79 (registry+https://github.com/rust-lang/crates.io-index)",
+ "serde_derive 1.0.79 (registry+https://github.com/rust-lang/crates.io-index)",
+ "threadpool 1.7.1 (registry+https://github.com/rust-lang/crates.io-index)",
+ "time 0.1.40 (registry+https://github.com/rust-lang/crates.io-index)",
+ "util 0.6.0 (git+https://github.com/cryptape/cita-common.git?branch=develop)",
+]
 
 [[package]]
 name = "libc"

@@ -1,6 +1,6 @@
 [package]
-name = "cita-bft"
-version = "0.1.0"
+name = "libbft"
+version = "1.0.0"
 authors = ["Cryptape Technologies <contact@cryptape.com>"]
 
 [dependencies]
@@ -32,6 +32,9 @@ min-max-heap = "1.2.0"
 [build-dependencies]
 util = { git = "https://github.com/cryptape/cita-common.git", branch = "develop" }
 
+[[bin]]
+name = "cita-bft"
+path = "src/bin/cita-bft.rs"
 
 [features]
 default = ["secp256k1", "sha3hash", "rabbitmq"]
