@@ -42,9 +42,9 @@ use std::collections::{BTreeMap, HashMap, VecDeque};
 use std::fs;
 use std::time::{Duration, Instant};
 
+use crate::types::{Address, H256};
 use cita_directories::DataPath;
 use hashable::Hashable;
-use crate::types::{Address, H256};
 
 const INIT_HEIGHT: usize = 1;
 const INIT_ROUND: usize = 0;

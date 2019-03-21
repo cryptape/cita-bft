@@ -17,12 +17,12 @@
 
 use super::ntp::Ntp;
 use crate::crypto::{PrivKey, Signer};
+use crate::types::clean_0x;
 use std::cell::Cell;
 use std::fs::File;
 use std::io::Read;
 use std::str::FromStr;
 use std::time::Duration;
-use crate::types::clean_0x;
 
 #[derive(Debug, Deserialize, Clone)]
 pub struct Config {
