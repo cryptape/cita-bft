@@ -49,7 +49,7 @@ use hashable::Hashable;
 const INIT_HEIGHT: usize = 1;
 const INIT_ROUND: usize = 0;
 
-const MAX_PROPOSAL_TIME_COEF: usize = 10;
+const MAX_PROPOSAL_TIME_COEF: usize = 20;
 
 const TIMEOUT_RETRANSE_MULTIPLE: u32 = 15;
 const TIMEOUT_LOW_ROUND_MESSAGE_MULTIPLE: u32 = 20;
