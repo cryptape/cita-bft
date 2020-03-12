@@ -51,6 +51,9 @@ const MAX_PROPOSAL_TIME_COEF: usize = 10;
 const TIMEOUT_RETRANSE_MULTIPLE: u32 = 15;
 const TIMEOUT_LOW_ROUND_MESSAGE_MULTIPLE: u32 = 20;
 
+// temp value about block timestamp interval(20s), todo delete
+const TIMEOUT_UPPER_LIMIT: u64 = 20000;
+
 pub type TransType = (String, Vec<u8>);
 pub type PubType = (String, Vec<u8>);
 
@@ -154,6 +157,8 @@ pub struct Bft {
     step: Step,
     proof: BftProof,
     pre_hash: Option<H256>,
+    // last timestamp of last received block
+    pre_ts: u64,
     votes: VoteCollector,
     proposals: ProposalCollector,
     proposal: Option<H256>,
@@ -242,6 +247,7 @@ impl Bft {
             step: Step::Propose,
             proof,
             pre_hash: None,
+            pre_ts: 0,
             votes: VoteCollector::new(),
             proposals: ProposalCollector::new(),
             proposal: None,
@@ -918,8 +924,8 @@ impl Bft {
                             } else if fround == r
                                 && step == fstep
                                 && now - ins
-                                    > self.params.timer.get_prevote()
-                                        * TIMEOUT_LOW_ROUND_MESSAGE_MULTIPLE
+                                > self.params.timer.get_prevote()
+                                * TIMEOUT_LOW_ROUND_MESSAGE_MULTIPLE
                             {
                                 add_flag = true;
                                 trans_flag = true;
@@ -1006,6 +1012,31 @@ impl Bft {
                     warn!(
                         "proc_proposal {} version error h: {}, r: {}",
                         self, height, round
+                    );
+                    return false;
+                }
+
+                // set timestamp check, TODO
+                let cur_ts: u64 = block.get_header().get_timestamp();
+                let pre_ts: u64;
+                if let Some(pre_block) = self.verified_blocks.get(&hash) {
+                    // always not execute in here, TODO
+                    pre_ts = pre_block.get_header().get_timestamp();
+                    info!(
+                        "proc_proposal {} last block exit h: {}, r: {}, ts: {}, cur_ts: {}",
+                        self, height, round, pre_ts, cur_ts
+                    );
+                } else {
+                    pre_ts = self.pre_ts;
+                    info!(
+                        "proc_proposal {} last block not exit h: {}, r: {}, ts: {}, cur_ts: {}",
+                        self, height, round, pre_ts, cur_ts
+                    );
+                }
+                if (cur_ts <= pre_ts || cur_ts >= pre_ts + TIMEOUT_UPPER_LIMIT) && self.height > 1 {
+                    warn!(
+                        "proc_proposal {} timestamp error h: {}, r: {}, current timestamp {}, pre-block timestamp {}",
+                        self, height, round, cur_ts, pre_ts
                     );
                     return false;
                 }
@@ -1188,8 +1219,8 @@ impl Bft {
                 if height < self.height
                     || (height == self.height && round < self.round)
                     || (height == self.height
-                        && round == self.round
-                        && self.step > Step::ProposeWait)
+                    && round == self.round
+                    && self.step > Step::ProposeWait)
                 {
                     debug!("handle_proposal {} get old proposal", self);
                     return Err(EngineError::VoteMsgDelay(height));
@@ -1477,7 +1508,7 @@ impl Bft {
             // If consensus doesn't receive the result of block verification in a specific
             // time-frame, use the original message to construct a request, then resend it to auth.
             if let Some((csp_msg, result)) =
-                self.unverified_msg.get_mut(&(tminfo.height, tminfo.round))
+            self.unverified_msg.get_mut(&(tminfo.height, tminfo.round))
             {
                 if let VerifiedBlockStatus::Init(ref mut times) = *result {
                     trace!("wait for the verification result {} times", times);
@@ -1661,11 +1692,11 @@ impl Bft {
                             &(vheight, vround, verify_res.value(), block_bytes),
                             Infinite,
                         )
-                        .unwrap();
+                            .unwrap();
                         let _ = self.wal_log.save(vheight, LogType::VerifiedBlock, &msg);
                         // Send SignedProposal to executor.
                         if let Some(compact_signed_proposal) =
-                            res.0.clone().take_compact_signed_proposal()
+                        res.0.clone().take_compact_signed_proposal()
                         {
                             let signed_proposal = compact_signed_proposal
                                 .complete(block.get_body().get_transactions().to_vec());
@@ -1712,8 +1743,8 @@ impl Bft {
                     let now_step = self.step;
                     if now_height == height + 1
                         && self
-                            .is_round_proposer(now_height, now_round, &self.params.signer.address)
-                            .is_ok()
+                        .is_round_proposer(now_height, now_round, &self.params.signer.address)
+                        .is_ok()
                         && now_step == Step::ProposeWait
                         && self.proposal.is_none()
                     {
@@ -1813,10 +1844,12 @@ impl Bft {
         }
 
         let pre_hash = H256::from_slice(&status.hash);
+        let pre_ts = status.timestamp;
         if height > 0 && status_height + 1 == height {
-            // try efforts to save previous hash,when current block is not commit to chain
+            // try efforts to save previous hash and timestamp, when current block is not commit to chain
             if step < Step::CommitWait {
                 self.pre_hash = Some(pre_hash);
+                self.pre_ts = pre_ts;
             }
 
             // commit timeout since pub block to chain,so resending the block
@@ -1831,6 +1864,7 @@ impl Bft {
         }
         let new_round = if status_height == height {
             self.pre_hash = Some(pre_hash);
+            self.pre_ts = pre_ts;
             self.round
         } else {
             INIT_ROUND
